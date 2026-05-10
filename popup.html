@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #181824;
+      --border: #222233;
+      --accent: #6366f1;
+      --accent2: #ec4899;
+      --accent3: #10b981;
+      --text: #e2e2f0;
+      --muted: #6b6b8a;
+      --danger: #ef4444;
+      --font-ui: system-ui, -apple-system, sans-serif;
+      --font-mono: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 15px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-badge {
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-offline    { background: var(--surface2); color: var(--muted); }
+    .status-connecting { background: rgba(236,72,153,0.15); color: var(--accent2); }
+    .status-connected  { background: rgba(16,185,129,0.15); color: var(--accent3); }
+
+    .stage {
+      flex: 1;
+      position: relative;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    #facesView {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 100%;
+      width: 100%;
+    }
+
+    .face-tile {
+      position: relative;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .face-tile video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      inset: 0;
+    }
+
+    .face-ph {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: var(--muted);
+      z-index: 1;
+    }
+
+    .face-ph span { font-size: 2.5rem; margin-bottom: 5px; }
+
+    .chip {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.65);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: bold;
+      z-index: 2;
+    }
+
+    .mic-icon {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--danger);
+      padding: 4px;
+      border-radius: 50%;
+      font-size: 0.8rem;
+      display: none;
+      z-index: 2;
+    }
+
+    .mic-off .mic-icon { display: block; }
+
+    #screenView {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .screen-main {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #050508;
+      overflow: hidden;
+    }
+
+    #screenVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: all 0.2s;
+    }
+
+    .screen-controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 5px;
+      background: rgba(0,0,0,0.55);
+      padding: 5px;
+      border-radius: 8px;
+      z-index: 10;
+    }
+
+    .screen-controls button {
+      background: var(--surface2);
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      padding: 5px 9px;
+      font-size: 0.8rem;
+      transition: background 0.15s;
+    }
+
+    .screen-controls button:hover { background: var(--accent); }
+
+    #zoomControls { display: none; }
+
+    #viewerFullscreenBtn {
+      display: none;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(99,102,241,0.85);
+      border: none;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 7px 13px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      z-index: 20;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      transition: background 0.15s;
+    }
+
+    #viewerFullscreenBtn:hover { background: var(--accent); }
+
+    .pip-row {
+      height: 80px;
+      display: flex;
+      gap: 4px;
+      padding: 4px 6px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      align-items: center;
+    }
+
+    .pip-tile {
+      flex: 1;
+      position: relative;
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--surface);
+      height: 100%;
+    }
+
+    .pip-tile video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .pip-tile .pip-name,
+    .pip-tile .pip-live,
+    .pip-screen-label {
+      display: none !important;
+    }
+
+    .controls-bar {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      padding: 12px 15px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .round-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: none;
+      background: var(--surface2);
+      color: white;
+      font-size: 1.15rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .round-btn:active { transform: scale(0.92); }
+    .round-btn.on     { background: var(--surface2); }
+    .round-btn.off    { background: var(--danger); }
+    .round-btn.active { background: var(--accent); }
+
+    #hangupBtn { display: none; background: var(--danger); }
+
+    #logBar {
+      padding: 7px 15px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--accent3);
+      background: #000;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-shrink: 0;
+    }
+
+    .section {
+      padding: 13px 15px;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 9px 11px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: white;
+      border-radius: 6px;
+      margin-bottom: 9px;
+      font-size: 0.9rem;
+    }
+
+    input[type="text"]::placeholder { color: var(--muted); }
+
+    .primary-btn {
+      width: 100%;
+      padding: 10px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    .primary-btn:hover { background: #4f46e5; }
+    .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .secondary-btn {
+      padding: 8px;
+      background: var(--surface2);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .secondary-btn:hover { background: #2a2a3e; }
+
+    #roomIdRow { display: none; text-align: center; }
+
+    .room-display {
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: bold;
+      margin: 8px 0;
+      color: var(--accent2);
+      letter-spacing: 2px;
+    }
+
+    .flex-row { display: flex; gap: 10px; }
+
+    #toast {
+      position: fixed;
+      bottom: -50px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: white;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 0.84rem;
+      transition: bottom 0.3s;
+      z-index: 9999;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+      white-space: nowrap;
+    }
+
+    /* Fullscreen */
+    .screen-main:-webkit-full-screen,
+    .screen-main:fullscreen {
+      width: 100vw; height: 100vh; background: #000;
+    }
+    .screen-main:-webkit-full-screen #screenVideo,
+    .screen-main:fullscreen #screenVideo {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+    .screen-main:-webkit-full-screen #viewerFullscreenBtn,
+    .screen-main:fullscreen #viewerFullscreenBtn {
+      z-index: 9999; top: 12px; left: 12px;
+    }
+    .screen-main:-webkit-full-screen #floatingCam,
+    .screen-main:fullscreen #floatingCam { z-index: 9999; }
+
+    /* Floating cam (fallback PiP overlay) */
+    #floatingCam {
+      display: none;
+      position: absolute;
+      width: 140px;
+      height: 96px;
+      bottom: 14px;
+      left: 14px;
+      z-index: 50;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #000;
+      cursor: grab;
+      user-select: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.06);
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+    #floatingCam:hover {
+      box-shadow: 0 6px 24px rgba(0,0,0,0.8);
+      border-color: rgba(255,255,255,0.12);
+    }
+    #floatingCam.dragging {
+      cursor: grabbing;
+      transform: scale(1.02);
+    }
+    #floatingCam video {
+      width: 100%; height: 100%; object-fit: cover;
+      pointer-events: none; display: block;
+    }
+    #floatingCamResize {
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 14px; height: 14px;
+      cursor: nwse-resize;
+      z-index: 51;
+      background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.2) 50%);
+      border-radius: 0 0 8px 0;
+    }
+    #floatingCamPopout {
+      position: absolute;
+      top: 5px; right: 5px;
+      z-index: 52;
+      background: rgba(20,20,35,0.82);
+      border: 1px solid rgba(99,102,241,0.6);
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.7rem;
+      font-weight: 600;
+      line-height: 1;
+      padding: 3px 7px;
+      letter-spacing: 0.3px;
+      opacity: 0;
+      transition: opacity 0.2s, background 0.15s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #floatingCamPopout:hover {
+      background: rgba(99,102,241,0.9);
+    }
+    #floatingCam:hover #floatingCamPopout {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Mirror-guard overlay — shown when sharing a full monitor to prevent  */
+    /* the infinite recursive mirror that would otherwise appear in the      */
+    /* local screen preview.                                                 */
+    #mirrorGuard {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: var(--surface);
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+      pointer-events: none;
+    }
+    .mg-icon  { font-size: 2.4rem; }
+    .mg-title { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+    .mg-sub   { font-size: 0.74rem; line-height: 1.55; max-width: 230px; }
+
+    @keyframes toastSlideUp {
+      from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+      to   { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div class="brand">🎬 CousinsWatch Pro</div>
+  <div id="statusBadge" class="status-badge status-offline">Offline</div>
+</header>
+
+<div class="stage">
+
+  <div id="facesView">
+    <div id="localTile" class="face-tile">
+      <video id="localVideo" autoplay muted playsinline style="transform: scaleX(-1);"></video>
+      <div id="localPH" class="face-ph"><span>👤</span>YOU</div>
+      <div class="chip">YOU</div>
+      <div class="mic-icon">🔇</div>
+    </div>
+
+    <div id="remoteTile" class="face-tile">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <div id="remotePH" class="face-ph"><span>👤</span>COUSIN</div>
+      <div class="chip">COUSIN</div>
+    </div>
+  </div>
+
+  <div id="screenView">
+    <div class="screen-main">
+      <video id="screenVideo" autoplay playsinline muted></video>
+      <div id="screenChip" class="chip" style="top:10px;bottom:auto;left:50%;transform:translateX(-50%);">🖥️ SCREEN</div>
+
+      <div id="zoomControls" class="screen-controls">
+        <button id="zoomOutBtn" title="Zoom out">➖</button>
+        <button id="zoomReset"  title="Reset">1×</button>
+        <button id="zoomInBtn"  title="Zoom in">➕</button>
+      </div>
+
+      <button id="viewerFullscreenBtn" title="Fullscreen">⛶ Fullscreen</button>
+
+      <div id="floatingCam">
+        <video id="floatingCamVideo" muted autoplay playsinline></video>
+        <div id="floatingCamResize"></div>
+        <button id="floatingCamPopout" title="Pop out to Picture-in-Picture">⤢ Pop out</button>
+      </div>
+    </div>
+
+    <div class="pip-row">
+      <div class="pip-tile" id="pipLocalTile">
+        <video id="pipLocalVideo" muted autoplay playsinline style="transform: scaleX(-1);"></video>
+        <div class="pip-name">You</div>
+      </div>
+      <div class="pip-tile" id="pipRemoteTile">
+        <video id="pipRemoteVideo" autoplay playsinline></video>
+        <div class="pip-name">Cousin</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="controls-bar">
+  <button id="toggleVideo" class="round-btn on" title="Camera">📷</button>
+  <button id="toggleAudio" class="round-btn on" title="Mic">🎙️</button>
+  <button id="shareScreen" class="round-btn"    title="Share screen">🖥️</button>
+  <button id="hangupBtn"   class="round-btn"    title="Hang up">📵</button>
+</div>
+
+<div id="logBar">Waiting for action…</div>
+
+<div class="section">
+  <div id="joinRow">
+    <input type="text" id="roomInput" placeholder="Paste cousin's Room ID (blank = you host)">
+    <button id="connectBtn" class="primary-btn">🔗 Connect</button>
+  </div>
+
+  <div id="roomIdRow">
+    <div style="font-size:0.8rem;color:var(--muted);">Share this Room ID with your cousin</div>
+    <div id="roomIdDisplay" class="room-display">—</div>
+    <div class="flex-row">
+      <button id="copyRoomBtn"   class="secondary-btn">📋 Copy</button>
+      <button id="disconnectBtn" class="secondary-btn" style="background:var(--danger)">Leave</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast">Notification</div>
+
+<script src="lib/config.js"></script>
+<script src="lib/logger.js"></script>
+<script src="lib/network.js"></script>
+<script src="lib/peer.js"></script>
+<script src="lib/webrtc.js"></script>
+<script src="lib/signaling.js"></script>
+<script src="lib/media.js"></script>
+<script src="lib/audio-mixer.js"></script>
+<script src="lib/pip.js"></script>
+<script src="popup.js"></script>
+
+</body>
+</html>
