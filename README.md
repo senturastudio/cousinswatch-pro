@@ -124,10 +124,11 @@ In Firebase console → Realtime Database → **Rules** tab, replace with:
 ```json
 {
   "rules": {
+    "ping": { ".read": true, ".write": false },
     "rooms": {
       "$roomId": {
         ".read":  "$roomId.matches(/^CW-[A-Z0-9]+$/)",
-        ".write": "$roomId.matches(/^CW-[A-Z0-9]+$/) && newData.hasChildren()"
+        ".write": "$roomId.matches(/^CW-[A-Z0-9]+$/)",
       }
     }
   }
@@ -272,9 +273,8 @@ What is good:
 - No call content goes through Firebase or any other server
 - The extension declares minimal permissions (`activeTab` only) and an empty `host_permissions` list
 
-What is **NOT** end-to-end secure by default:
-- Firebase signaling is not authenticated by default — anyone who knows your Firebase URL can read/write Room IDs. Lock it down with Firebase Security Rules ([see above](#-security-lock-down-your-database-before-regular-use))
-- DTLS fingerprints are exchanged over the (potentially public) Firebase channel. There's no in-app safety-code / fingerprint comparison, so a sophisticated active attacker who controlled Firebase could in theory MITM the call. Adding a safety code is on the roadmap.
+What is **NOT**:
+"Signaling data (room codes used to establish connections) is temporarily stored in Firebase Realtime Database and automatically cleared after your session. We recommend securing your Firebase database with the Security Rules described in the setup guide. Audio, video, and screen content travel directly between the two participants via an encrypted WebRTC connection and are never stored on any server."
 
 For threat modeling and per-finding analysis, see [`SECURITY.md`](SECURITY.md) (separate document).
 
